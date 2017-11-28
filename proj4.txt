@@ -1,0 +1,13 @@
+Lab 4
+
+Write a program that takes a reference string and the number
+of frames as inputs to simulate page replacement algorithms.
+
+Suppose the maximum length of a reference string is 30 and
+there are 5 different numbers of pages. Randomly enter a reference
+string through the keyboard, e.g. 2 1 3 4 5 2 3 ..., and enter the
+number of frames as inputs.
+
+Compare the number of page faults generated
+by the Optimal and LRU algorithms.  If there is a tie, randomly choose one to break the tie. Print out the page replacement process and
+you can see how LRU differs from the optimal.
