@@ -23,10 +23,14 @@ int future(int mem[], int ref[], int mm, int length, int start);
 
 //PAGE TABLE STRUCTURE FOR MORE REALISTIC SIMULATION (see optimal function description)
 struct PageTables {
-  int pageNumber[30];
-  int frameNumber[30];
-  int validBit[30];
-  int referenceBit[30];
+  int pageNumber[10];
+  int frameNumber[10];
+  int validBit[10];
+};
+
+struct mainMemory {
+  int value;
+  int counter; //Only used for LRU
 };
 
 /*
@@ -64,6 +68,7 @@ int main() {
     else {
       for(int i=0; i<strlen(refString);) {
         if(
+          refString[i]=='0' ||
           refString[i]=='1' ||
           refString[i]=='2' ||
           refString[i]=='3' ||
@@ -77,7 +82,7 @@ int main() {
             refBreak = 1;
         }
         else {
-          printf("You must enter integers from 1 to 9. Please try again.\n");
+          printf("You must enter integers from 0 to 9. Please try again.\n");
           refBreak = 0;
           break;
         }
@@ -114,10 +119,10 @@ int main() {
 int optimal(int ref[], int length, int mm) {
   int pageFaults = 0;
   int choice = 0;
-  int mainMemory[mm];
+  int optimalMainMemory[mm];
 
   struct PageTables OpPageTable;
-  for(int i=0; i<30; i++) {
+  for(int i=0; i<10; i++) {
     OpPageTable.validBit[i] = 0;
   }
 
@@ -125,7 +130,7 @@ int optimal(int ref[], int length, int mm) {
 
   for(int i=0; i<mm; i++) {
     if(OpPageTable.validBit[ref[i]] != 1) {
-      mainMemory[memCount] = ref[i];
+      optimalMainMemory[memCount] = ref[i];
       pageFaults++;
       OpPageTable.frameNumber[ref[i]] = memCount;
       OpPageTable.validBit[ref[i]] = 1;
@@ -141,11 +146,11 @@ int optimal(int ref[], int length, int mm) {
         memCount++;
       }
       else {
-        choice = future(mainMemory, ref, mm, length, i);
-        OpPageTable.validBit[mainMemory[choice]] = 0;
+        choice = future(optimalMainMemory, ref, mm, length, i);
+        OpPageTable.validBit[optimalMainMemory[choice]] = 0;
       }
       OpPageTable.frameNumber[ref[i]] = choice;
-      mainMemory[choice] = ref[i];
+      optimalMainMemory[choice] = ref[i];
       OpPageTable.validBit[ref[i]] = 1;
     }
   }
@@ -163,57 +168,72 @@ int optimal(int ref[], int length, int mm) {
 int lru(int ref[], int length, int mm) {
   int pageFaults = 0;
   int choice = 0;
-  int k = 0;
-  int mainMemory[mm];
+  int clk = 0;
+  struct mainMemory lruMainMemory[mm];
 
   struct PageTables lruPageTable;
-  for(int i=0; i<30; i++) {
+  for(int i=0; i<10; i++) {
     lruPageTable.validBit[i] = 0;
-    lruPageTable.referenceBit[i] = 0;
   }
 
   int memCount = 0;
 
+  //Filling main memory
   for(int i=0; i<mm; i++) {
-    if(lruPageTable.validBit[ref[i]] != 1) {
-      mainMemory[memCount] = ref[i];
+    //Not yet in main memory - still copy the clock
+    if(lruPageTable.validBit[ref[i]] == 0) {
+      lruMainMemory[memCount].value = ref[i];
       pageFaults++;
       lruPageTable.frameNumber[ref[i]] = memCount;
       lruPageTable.validBit[ref[i]] = 1;
+      lruMainMemory[memCount].counter = clk;
       memCount++;
     }
     else {
-      lruPageTable.referenceBit[ref[i]] = 1;
+      //Already in main memory - Copy the clock
+      lruMainMemory[lruPageTable.frameNumber[ref[i]]].counter = clk;
     }
+    clk++;
   }
 
+  //goes through the rest of the reference string values
   for(int i=mm; i<length; i++) {
-    if(lruPageTable.validBit[ref[i]] != 1) {
+    //Page fault
+    if(lruPageTable.validBit[ref[i]] == 0) {
       pageFaults++;
 
+      //There are still open spaces in memory
       if(memCount<mm) {
         choice = memCount;
         memCount++;
       }
+
+      //Find a best replacement spot
       else {
-        for(int j=1; j<length; j++) {
-          if(lruPageTable.referenceBit[j]==0 && lruPageTable.validBit[j]==1) {
-            lruPageTable.validBit[j] = 0;
-            choice = lruPageTable.frameNumber[j];
-            k = j;
-            break;
+
+        choice = 0;
+        for(int j=1; j<mm; j++) {
+          if(lruMainMemory[j].counter < lruMainMemory[j-1].counter) {
+            choice = j;
           }
         }
-        lruPageTable.validBit[k] = 0;
-        lruPageTable.referenceBit[k] = 0;
+
+        lruPageTable.validBit[lruMainMemory[choice].value] = 0;
+        lruMainMemory[choice].counter = clk;
       }
+
+      //update page table
       lruPageTable.frameNumber[ref[i]] = choice;
-      mainMemory[choice] = ref[i];
+      lruMainMemory[choice].value = ref[i];
       lruPageTable.validBit[ref[i]] = 1;
     }
+
+    //Already loaded into main memory
     else {
-      lruPageTable.referenceBit[ref[i]] = 1;
+      lruMainMemory[lruPageTable.frameNumber[ref[i]]].counter = clk;
     }
+
+    clk++;
   }
   return pageFaults;
 }
